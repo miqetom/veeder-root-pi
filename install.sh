@@ -4,6 +4,7 @@
 #
 #  Run from the cloned repo directory with sudo:
 #      sudo ./install.sh
+#  (or, if it won't execute:  sudo bash install.sh )
 #
 #  It will:
 #    1. Install system packages (python3, venv, pip).
@@ -34,8 +35,6 @@ apt-get update -y
 apt-get install -y python3 python3-venv python3-pip
 
 # --- 2. First-run config -----------------------------------------------------
-# config.py is git-ignored, so a freshly cloned repo won't have it. Seed it
-# from the template the first time.
 if [ ! -f "$INSTALL_DIR/config.py" ]; then
     echo "==> Creating config.py from template (edit it after install)..."
     cp "$INSTALL_DIR/config.example.py" "$INSTALL_DIR/config.py"
@@ -50,25 +49,41 @@ python3 -m venv "$INSTALL_DIR/.venv"
 "$INSTALL_DIR/.venv/bin/pip" install --upgrade pip
 "$INSTALL_DIR/.venv/bin/pip" install -r "$INSTALL_DIR/requirements.txt"
 
-# Make sure scripts are executable
-chmod +x "$INSTALL_DIR/run.sh" "$INSTALL_DIR/install.sh"
-
-# Ownership back to the real user
+chmod +x "$INSTALL_DIR/run.sh" "$INSTALL_DIR/install.sh" || true
 chown -R "$RUN_USER":"$RUN_USER" "$INSTALL_DIR/.venv"
 
 # --- 4. Serial port access ---------------------------------------------------
 echo "==> Adding $RUN_USER to 'dialout' group for serial access..."
 usermod -aG dialout "$RUN_USER" || true
 
-# --- 5. systemd service + timer ---------------------------------------------
+# --- 5. systemd service + timer (generated here, no extra files needed) ------
 echo "==> Installing systemd service and hourly timer..."
-sed -e "s|__USER__|$RUN_USER|g" \
-    -e "s|__INSTALL_DIR__|$INSTALL_DIR|g" \
-    "$INSTALL_DIR/systemd/veeder-capture.service" \
-    > /etc/systemd/system/veeder-capture.service
 
-cp "$INSTALL_DIR/systemd/veeder-capture.timer" \
-    /etc/systemd/system/veeder-capture.timer
+cat > /etc/systemd/system/veeder-capture.service <<UNIT
+[Unit]
+Description=Veeder-Root tank capture and SFTP upload
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=$RUN_USER
+WorkingDirectory=$INSTALL_DIR
+ExecStart=/usr/bin/env bash $INSTALL_DIR/run.sh
+UNIT
+
+cat > /etc/systemd/system/veeder-capture.timer <<'UNIT'
+[Unit]
+Description=Run Veeder-Root capture+upload hourly
+
+[Timer]
+OnCalendar=hourly
+Persistent=true
+OnBootSec=2min
+
+[Install]
+WantedBy=timers.target
+UNIT
 
 systemctl daemon-reload
 systemctl enable --now veeder-capture.timer

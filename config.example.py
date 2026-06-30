@@ -21,6 +21,8 @@ TIMEOUT     = 10               # seconds
 CSV_PATH = "/home/admin/Documents/TESTTABLE.csv"
 
 # ----- Product code -> name map ---------------------------------------------
+# Product comes straight from the ATG; this just turns its numeric code into a
+# readable name. Usually no need to change it per store.
 PRODUCT_MAP = {
     "1": "REGULAR",
     "2": "PREMIUM",
