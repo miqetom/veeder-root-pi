@@ -1,0 +1,11 @@
+# Real per-store config with credentials -- never commit this.
+# Copy config.example.py to config.py on each Pi and edit it.
+config.py
+
+# Python venv created by install.sh
+.venv/
+__pycache__/
+*.pyc
+
+# Local data
+*.csv
